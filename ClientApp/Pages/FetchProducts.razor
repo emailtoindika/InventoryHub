@@ -1,0 +1,95 @@
+@page "/fetchproducts"
+@inject HttpClient http
+@using System.Text.Json
+
+<h3>Product List</h3>
+
+@if (isLoading)
+{
+    <p><em>Loading products...</em></p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <p style="color:red">@errorMessage</p>
+}
+else if (products != null && products.Count > 0)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th style="text-align: right;">Price</th>
+                <th style="text-align: right;">Stock Quantity</th>
+                <th>Category</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in products)
+            {
+                <tr>
+                    <td>@product.Name</td>
+                    <td style="text-align: right;">@product.Price.ToString("0.00")</td>
+                    <td style="text-align: right;">@product.Stock</td>
+                    <td>@product.Category?.Name</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>No products found.</p>
+}
+
+@code {
+    private List<Product>? products;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var response = await http.GetAsync("api/productlist");
+            response.EnsureSuccessStatusCode();
+            
+            var json = await response.Content.ReadAsStringAsync();
+            Console.WriteLine("Received JSON: " + json);
+            products = JsonSerializer.Deserialize<List<Product>>(json, 
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+        }
+        catch (HttpRequestException ex)
+        {
+            errorMessage = $"Request error: {ex.Message}";
+        }
+        catch (TaskCanceledException)
+        {
+            errorMessage = "Request timed out. Please try again.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unexpected error: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class Product
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+        public double Price { get; set; }
+        public int Stock { get; set; }
+        public Category? Category { get; set; }
+    }
+
+    public class Category{
+        public int Id {get; set;}
+        public string? Name {get; set;}
+    }
+}
